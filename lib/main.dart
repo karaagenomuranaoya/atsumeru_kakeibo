@@ -4,6 +4,27 @@ void main() {
   runApp(const MyApp());
 }
 
+class Category {
+  final String name;
+  final IconData icon;
+  final Color color;
+
+  Category({required this.name, required this.icon, required this.color});
+}
+
+//データの設計図
+class ExpenseItem {
+  final int amount;
+  final Category category;
+  final String memo;
+
+  ExpenseItem({
+    required this.amount,
+    required this.category,
+    required this.memo,
+  });
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key}); //入ってきたキーを親に渡す 今は使わないけど将来のた目に残してある
 
@@ -35,12 +56,20 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   //MyHomePage という名前の部品とペア
   int _totalAmount = 0;
-  List<String> _history = [];
-  final List<String> _categories = ['ご飯5杯', 'ラーメン', 'キング牛丼'];
-  String _selectedCategory = 'ご飯5杯';
+  //変更 リストの中身をStringからExpenseItemに変更
 
+  List<ExpenseItem> _history = [];
   final TextEditingController _controller = TextEditingController();
   final TextEditingController _memoController = TextEditingController();
+
+  final List<Category> _categories = [
+    Category(name: '食費', icon: Icons.fastfood, color: Colors.orange),
+    Category(name: '交通費', icon: Icons.train, color: Colors.blue),
+    Category(name: '日用品', icon: Icons.shopping_bag, color: Colors.green),
+    Category(name: '趣味', icon: Icons.sports_esports, color: Colors.purple),
+    Category(name: 'その他', icon: Icons.help_outline, color: Colors.grey),
+  ];
+  late Category _selectedCategory = _categories[0];
 
   void _addExpense() {
     setState(() {
@@ -48,9 +77,17 @@ class _MyHomePageState extends State<MyHomePage> {
       int inputAmount = int.tryParse(inputText) ?? 0;
       String memo = _memoController.text;
 
+      //変更ExpenseItemで追加
       if (inputAmount > 0) {
         _totalAmount += inputAmount;
-        _history.insert(0, '$_selectedCategory¥$inputAmount:$memo');
+        _history.insert(
+          0,
+          ExpenseItem(
+            amount: inputAmount,
+            category: _selectedCategory,
+            memo: memo,
+          ),
+        );
 
         _controller.clear();
         _memoController.clear();
@@ -74,8 +111,8 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            const SizedBox(height: 20),
             const Text('にゃおまるの貯金がこんなに増えたよ。'),
             Text(
               '$_totalAmount',
@@ -87,15 +124,21 @@ class _MyHomePageState extends State<MyHomePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text('カテゴリ：'),
-                  DropdownButton<String>(
+                  DropdownButton<Category>(
                     value: _selectedCategory,
-                    items: _categories.map((String category) {
+                    items: _categories.map((Category category) {
                       return DropdownMenuItem(
                         value: category,
-                        child: Text(category),
+                        child: Row(
+                          children: [
+                            Icon(category.icon, color: category.color),
+                            const SizedBox(width: 10),
+                            Text(category.name),
+                          ],
+                        ),
                       );
                     }).toList(),
-                    onChanged: (String? newValue) {
+                    onChanged: (Category? newValue) {
                       setState(() {
                         _selectedCategory = newValue!;
                       });
@@ -125,6 +168,8 @@ class _MyHomePageState extends State<MyHomePage> {
               child: ListView.builder(
                 itemCount: _history.length,
                 itemBuilder: (context, index) {
+                  final item = _history[index];
+
                   return Dismissible(
                     key: UniqueKey(),
                     background: Container(
@@ -137,14 +182,25 @@ class _MyHomePageState extends State<MyHomePage> {
 
                     onDismissed: (direction) {
                       setState(() {
+                        _totalAmount -= item.amount;
                         _history.removeAt(index);
                       });
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(const SnackBar(content: Text('削除しました')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('削除しました(金額も戻したよ。えら！)')),
+                      );
                     },
 
-                    child: ListTile(title: Text(_history[index])),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: item.category.color.withOpacity(0.2),
+                        child: Icon(
+                          item.category.icon,
+                          color: item.category.color,
+                        ),
+                      ),
+                      title: Text('¥${item.amount}'),
+                      subtitle: Text(item.memo),
+                    ),
                   );
                 },
               ),
